@@ -28,8 +28,11 @@ jobs:
           chmod 644 /tmp/gcp-key.json
 
       # 2. 建置 Docker Image (只做這一次！)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build Docker Image
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v5
         with:
           context: .
           load: true                # 重要！這代表建置完載入到本地 Docker，讓下面的步驟可以用
