@@ -10,8 +10,8 @@ This project adopts an **ELT (Extract, Load, Transform)** architecture, ensuring
 ```mermaid
 graph LR
     subgraph Sources [Data Sources]
-        A[External API<br>(Exchange Rates)]
-        B[Static Files<br>(CSV Datasets)]
+        A["External API<br>(Exchange Rates)"]
+        B["Static Files<br>(CSV Datasets)"]
     end
 
     subgraph Orchestration [Airflow & Docker]
@@ -24,10 +24,10 @@ graph LR
     end
 
     subgraph Data_Warehouse [BigQuery]
-        F[(Raw Layer)]
-        G[(Staging Layer)]
-        H[(Marts Layer)]
-        I[(Restricted Layer)]
+        F[("Raw Layer")]
+        G[("Staging Layer")]
+        H[("Marts Layer")]
+        I[("Restricted Layer")]
     end
 
     subgraph Transformation [dbt]
@@ -86,7 +86,7 @@ Managed GCP resources using **Terraform** to ensure environment reproducibility:
 
 | Domain | Technology | Use Case |
 | :--- | :--- | :--- |
-| **Orchestration** | **Apache Airflow 2.10.3** | Managing complex dependencies with TaskGroups and CeleryExecutor for concurrency. |
+| **Orchestration** | **Apache Airflow 3.1.3** | Managing complex dependencies with TaskGroups and CeleryExecutor for concurrency. |
 | **Compute** | **Docker & Docker Compose** | Encapsulating Airflow and dbt environments to eliminate "It works on my machine" issues. |
 | **Warehouse** | **Google BigQuery** | Storing tiered data (Raw, Staging, Marts) and utilizing partitioning for query optimization. |
 | **Transformation** | **dbt Core** | Handling data cleaning, modeling, testing, and documentation generation. |
