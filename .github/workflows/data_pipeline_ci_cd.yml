@@ -29,24 +29,30 @@ jobs:
 
       # 2. 建置 Docker Image (只做這一次！)
       - name: Build Docker Image
-        run: docker build -t my-ci-image .
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true                # 重要！這代表建置完載入到本地 Docker，讓下面的步驟可以用
+          tags: my-ci-image         # 給它取名
+          cache-from: type=gha      # 從 GitHub Actions 快取讀取
+          cache-to: type=gha,mode=max # 把這次的結果存入快取
 
       # 3. 測試 Airflow DAGs (使用剛建好的 Image)
       - name: Test Airflow DAGs
         run: |
           docker run --rm \
+            --entrypoint /bin/bash \
             -e AIRFLOW__CORE__SQL_ALCHEMY_CONN=sqlite:////tmp/airflow.db \
             -e AIRFLOW__CORE__LOAD_EXAMPLES=False \
             -v $(pwd)/dags:/opt/airflow/dags \
             my-ci-image \
-            python -c "from airflow.models import DagBag; \
-                       dag_bag = DagBag(dag_folder='/opt/airflow/dags', include_examples=False); \
-                       assert len(dag_bag.import_errors) == 0, f'DAG Import Errors: {dag_bag.import_errors}'"
+            -c "python -c \"from airflow.models import DagBag; dag_bag = DagBag(dag_folder='/opt/airflow/dags', include_examples=False); assert len(dag_bag.import_errors) == 0, f'DAG Import Errors: {dag_bag.import_errors}'\""
 
       # 4. 測試 dbt Models (重複使用同一個 Image)
       - name: Test dbt Models
         run: |
           docker run --rm \
+            --entrypoint /bin/bash \
             -v /tmp/gcp-key.json:/opt/airflow/secrets/gcp-key.json \
             -v $(pwd)/dbt_ecommerce:/opt/airflow/dbt_ecommerce \
             -e GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }} \
@@ -54,4 +60,4 @@ jobs:
             -e DBT_PROFILES_DIR=/opt/airflow/dbt_ecommerce \
             -w /opt/airflow/dbt_ecommerce \
             my-ci-image \
-            /bin/bash -c "dbt deps && dbt debug && dbt build --target dev"
+            -c "dbt deps && dbt debug && dbt build --target dev"
