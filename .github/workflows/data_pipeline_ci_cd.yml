@@ -56,6 +56,7 @@ jobs:
         run: |
           docker run --rm \
             --entrypoint /bin/bash \
+            -u 0 \
             -v /tmp/gcp-key.json:/opt/airflow/secrets/gcp-key.json \
             -v $(pwd)/dbt_ecommerce:/opt/airflow/dbt_ecommerce \
             -e GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }} \
