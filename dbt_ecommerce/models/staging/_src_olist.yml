@@ -1,0 +1,334 @@
+version: 2
+
+sources:
+  - name: olist_raw
+    description: "Raw data loaded from GCS via Airflow."
+    database: secure-customer-360-platform
+    schema: olist_raw
+    
+    tables:
+      # 1. 定義 PII 資料表
+      - name: customer_pii
+        description: "Simulated sensitive customer data containing PII (Personally Identifiable Information)."
+        # 這裡可以加入資料新鮮度檢查 (選做)
+        # loaded_at_field: _loaded_at 
+        # freshness:
+        #   warn_after: {count: 24, period: hour}
+        
+        columns:
+          - name: customer_id
+            description: "Primary key bridging to Olist orders."
+            tests:
+              - unique 
+              - not_null
+          
+          - name: email
+            description: "Customer email. [SENSITIVE] Needs hashing."
+            
+          - name: phone_number
+            description: "Contact number. [SENSITIVE]"
+
+          - name: home_address
+            description: "Contact home address. [SENSITIVE]"
+          
+          - name: original_city
+            description: "Contact original city."
+          
+          - name: original_state
+            description: "Contact original state."
+      
+      - name: olist_geolocation_dataset
+        description: "Geolocation data for Olist customers."
+        columns:
+          - name: geolocation_zip_code_prefix
+            description: "Location's zip code prefix."
+            tests:
+              - not_null
+          
+          - name: geolocation_lat
+            description: "Location's latitude."
+            tests:
+              - not_null
+            
+          - name: geolocation_lng
+            description: "Location's longitude."
+            tests:
+              - not_null
+          
+          - name: geolocation_city
+            description: "Location city name."
+          
+          - name: geolocation_state
+            description: "Location state abbreviation."
+
+      - name: olist_order_items_dataset
+        description: "Order items data for Olist orders."
+        columns:
+          - name: order_id
+            description: "Unique identifier for each order."
+            tests:
+              - not_null
+          
+          - name: order_item_id
+            description: "Order item sequence number."
+            tests:
+              - not_null
+            
+          - name: product_id
+            description: "Product ID for the order item."
+            tests:
+              - not_null
+          
+          - name: seller_id
+            description: "Seller from customer's order."
+            tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('olist_raw', 'olist_sellers_dataset')
+                    field: seller_id
+          
+          - name: shipping_limit_date
+            description: "Shipping limit date for the order item."
+            tests:
+              - not_null
+
+          - name: price
+            description: "Price of the order item."
+
+          - name: freight_value
+            description: "Freight value for the order item."
+
+      - name: olist_order_payments_dataset
+        description: "Payment methods and installments for each order."
+        columns:
+          - name: order_id
+            description: "Order unique identifier."
+            tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('olist_raw', 'olist_orders_dataset')
+                    field: order_id
+
+          - name: payment_sequential
+            description: "Sequence number of the payment for an order (e.g., 1 for the first card, 2 for the second)."
+            tests:
+              - not_null
+
+          - name: payment_type
+            description: "Method of payment (credit_card, voucher, boleto, etc.)."
+            tests:
+              - not_null
+              # - accepted_values:
+              #     arguments:
+              #       values: ['credit_card', 'boleto', 'voucher', 'debit_card', 'not_defined']
+
+          - name: payment_installments
+            description: "Number of installments chosen by the customer."
+            tests:
+              - not_null
+
+          - name: payment_value
+            description: "Transaction value."
+            tests:
+              - not_null
+              # 確保金額不會是負數 (除非有退款邏輯，但這張表看起來是支付)
+              # - dbt_utils.expression_is_true:
+              #     expression: ">= 0"
+
+      - name: olist_order_reviews_dataset
+        description: "Reviews made by customers."
+        columns:
+          - name: review_id
+            description: "Review unique identifier."
+            tests:
+              - not_null
+              # 注意：在原始資料中 review_id 未必唯一 (因為可能關聯多個 order_item)，
+              # 但通常我們會把它當作唯一鍵。如果測試失敗，可以拿掉 unique。
+              # - unique 
+
+          - name: order_id
+            description: "Unique identifier of the order."
+            tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('olist_raw', 'olist_orders_dataset')
+                    field: order_id
+
+          - name: review_score
+            description: "Note ranging from 1 to 5 given by the customer."
+            tests:
+              - not_null
+
+          - name: review_comment_title
+            description: "Comment title from the review left by the customer."
+
+          - name: review_comment_message
+            description: "Comment message from the review left by the customer."
+
+          - name: review_creation_date
+            description: "Shows the date in which the satisfaction survey was sent to the customer."
+            tests:
+              - not_null
+
+          - name: review_answer_timestamp
+            description: "Shows satisfaction survey answer timestamp."
+            tests:
+              - not_null
+
+      - name: olist_orders_dataset
+        description: "Core order data showing status and timestamps."
+        columns:
+          - name: order_id
+            description: "Unique identifier of the order."
+            tests:
+              - not_null
+              - unique  # 訂單主表的主鍵，絕對要是唯一的
+
+          - name: customer_id
+            description: "Key to the customer dataset. Note: In Olist, this is a unique key for each order, linking to customer_unique_id."
+            tests:
+              - not_null
+              # 如果你有定義 olist_customers_dataset，可以把下面這段打開
+              # - relationships:
+              #     to: source('olist_raw', 'olist_customers_dataset')
+              #     field: customer_id
+
+          - name: order_status
+            description: "Reference to the order status (delivered, shipped, etc)."
+            tests:
+              - not_null
+              # 這裡針對原始資料(String)做檢查，直接列出所有合法的狀態
+              - accepted_values:
+                  arguments:
+                    values: ['delivered', 'shipped', 'canceled', 'invoiced', 'processing', 'approved', 'unavailable', 'created']
+
+          - name: order_purchase_timestamp
+            description: "Shows the purchase timestamp."
+            tests:
+              - not_null  # 每張單一定有下單時間
+
+          - name: order_approved_at
+            description: "Shows the payment approval timestamp."
+            # 注意：這裡不能加 not_null，因為有些新訂單可能還沒核准
+
+          - name: order_delivered_carrier_date
+            description: "Shows the order posting timestamp. When it was handled to the logistic partner."
+            # 注意：還沒出貨的訂單這裡會是 null
+
+          - name: order_delivered_customer_date
+            description: "Shows the actual order delivery date to the customer."
+            # 注意：還沒送達的訂單這裡會是 null
+
+          - name: order_estimated_delivery_date
+            description: "Shows the estimated delivery date informed to customer at purchase."
+            tests:
+              - not_null  # 系統一定會給一個預計送達日
+
+      - name: olist_products_dataset
+        description: "Product dimension table including categories and dimensions."
+        columns:
+          - name: product_id
+            description: "Product unique identifier."
+            tests:
+              - not_null
+              - unique
+
+          - name: product_category_name
+            description: "Root category of product, in Portuguese."
+            # 原始資料有 null，所以這裡不測 not_null，留給 Staging 層去處理 (coalesce)
+
+          - name: product_name_lenght
+            description: "Number of characters extracted from the product name."
+
+          - name: product_description_lenght
+            description: "Number of characters extracted from the product description."
+
+          - name: product_photos_qty
+            description: "Number of product published photos."
+
+          - name: product_weight_g
+            description: "Product weight measured in grams."
+
+          - name: product_length_cm
+            description: "Product length measured in centimeters."
+
+          - name: product_height_cm
+            description: "Product height measured in centimeters."
+
+          - name: product_width_cm
+            description: "Product width measured in centimeters."
+
+      - name: olist_sellers_dataset
+        description: "Seller location and identifier."
+        columns:
+          - name: seller_id
+            description: "Seller unique identifier."
+            tests:
+              - not_null
+              - unique
+
+          - name: seller_zip_code_prefix
+            description: "First 5 digits of seller zip code."
+            tests:
+              - not_null
+
+          - name: seller_city
+            description: "Seller city name."
+
+          - name: seller_state
+            description: "Seller state code."
+            tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                  # 巴西只有 26 個州 + 1 個聯邦區，可以列舉出來確保正確
+                    values: ['SP', 'RJ', 'MG', 'RS', 'PR', 'SC', 'BA', 'DF', 'GO', 'PE', 'CE', 'ES', 'MA', 'PA', 'MT', 'PB', 'AM', 'RN', 'AL', 'PI', 'SE', 'MS', 'TO', 'RO', 'AC', 'RR', 'AP']
+
+      - name: product_category_name_translation
+        description: "Translation table for product categories (PT -> EN)."
+        columns:
+          - name: product_category_name
+            description: "Category name in Portuguese."
+            tests:
+              - not_null
+              - unique
+
+          - name: product_category_name_english
+            description: "Category name in English."
+            tests:
+              - not_null
+
+      - name: exchange_rates
+        description: "Daily exchange rates (BRL to USD)."
+        columns:
+          - name: date
+            description: "Date of the exchange rate."
+            tests:
+              - not_null
+              # 如果每天只有一筆 BRL->USD，那 date 應該要是唯一的
+              # 但如果有多種貨幣對，就要測複合鍵 (date + currency)
+              # 這裡假設只有 BRL->USD
+              - unique
+
+          - name: exchange_rate
+            description: "Exchange rate value."
+            tests:
+              - not_null
+
+          - name: source_currency
+            description: "Source currency code (e.g. BRL)."
+            tests:
+              - accepted_values:
+                  arguments:
+                    values: ['BRL']
+
+          - name: target_currency
+            description: "Target currency code (e.g. USD)."
+            tests:
+              - accepted_values:
+                  arguments:
+                    values: ['USD']
+      

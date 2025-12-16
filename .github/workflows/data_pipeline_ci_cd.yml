@@ -1,0 +1,82 @@
+name: Data Pipeline CI/CD
+
+on:
+  push:
+    branches: [ "main", "dev", "feature/*" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  # 定義路徑
+  DBT_PROJECT_DIR: ./dbt_ecommerce
+
+jobs:
+  # -------------------------------------------
+  # 合併 Job: 建置環境並執行所有整合測試
+  # -------------------------------------------
+  ci-tests:
+    name: CI Pipeline (Build & Test)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # 1. 準備 GCP Key (dbt 測試需要)
+      - name: Create GCP Key File
+        run: |
+          echo '${{ secrets.GCP_SA_KEY }}' > /tmp/gcp-key.json
+          chmod 644 /tmp/gcp-key.json
+
+      # 2. 建置 Docker Image (只做這一次！)
+      - name: Build Docker Image
+        run: docker build -t my-ci-image .
+
+      # 3. 測試 Airflow DAGs (使用剛建好的 Image)
+      - name: Test Airflow DAGs
+        run: |
+          docker run --rm \
+            -e AIRFLOW__CORE__SQL_ALCHEMY_CONN=sqlite:////tmp/airflow.db \
+            -e AIRFLOW__CORE__LOAD_EXAMPLES=False \
+            -v $(pwd)/dags:/opt/airflow/dags \
+            my-ci-image \
+            python -c "from airflow.models import DagBag; \
+                       dag_bag = DagBag(dag_folder='/opt/airflow/dags', include_examples=False); \
+                       assert len(dag_bag.import_errors) == 0, f'DAG Import Errors: {dag_bag.import_errors}'"
+
+      # 4. 測試 dbt Models (重複使用同一個 Image)
+      - name: Test dbt Models
+        run: |
+          docker run --rm \
+            -v /tmp/gcp-key.json:/opt/airflow/secrets/gcp-key.json \
+            -v $(pwd)/dbt_ecommerce:/opt/airflow/dbt_ecommerce \
+            -e GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }} \
+            -e GCP_KEY_PATH=/opt/airflow/secrets/gcp-key.json \
+            -e DBT_PROFILES_DIR=/opt/airflow/dbt_ecommerce \
+            -w /opt/airflow/dbt_ecommerce \
+            my-ci-image \
+            /bin/bash -c "dbt deps && dbt debug && dbt build --target dev"
+
+  # -------------------------------------------
+  # 部署 Job (維持不變)
+  # -------------------------------------------
+  deploy-production:
+    name: Deploy to Production Server
+    needs: [ci-tests] # 等上面那個合併的 Job 跑完
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+      
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.PROD_HOST_IP }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            cd /path/to/your/project
+            git pull origin main
+            # 因為 requirements 可能變了，這裡建議也要重新 build
+            docker-compose build airflow-worker
+            docker-compose up -d

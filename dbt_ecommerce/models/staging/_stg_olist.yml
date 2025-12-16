@@ -1,0 +1,348 @@
+version: 2
+
+models:
+  - name: stg_customer_pii
+    description: "Staging table for customer PII data."
+    columns:
+      - name: customer_id
+        data_type: STRING
+        description: "Customer ID"
+        constraints:
+          - type: primary_key
+          - type: not_null
+        tests:
+          - not_null
+          - unique
+
+      - name: real_name
+        data_type: string
+
+      - name: email
+        data_type: string
+
+      - name: phone_number
+        data_type: string
+
+      - name: home_address
+        data_type: string
+
+      - name: original_city
+        data_type: string
+
+      - name: original_state
+        data_type: string
+
+  - name: stg_order_items
+    description: "Staging table for order items data."
+    columns:
+      - name: order_item_sk
+        data_type: STRING
+        description: "order id and item_id concatenated"
+        constraints:
+          - type: primary_key
+          - type: not_null
+        tests:
+          - not_null
+          - unique
+      
+      - name: order_id
+        data_type: STRING
+        constraints:
+          - type: foreign_key
+            to: ref('stg_order')
+            to_columns: ['order_id']
+
+      - name: order_item_id
+        data_type: INT64
+      
+      - name: product_id
+        data_type: STRING
+        constraints:
+          - type: foreign_key
+            to: ref('stg_products')
+            to_columns: ['product_id']
+      
+      - name: seller_id
+        data_type: STRING
+        constraints:
+          - type: foreign_key
+            to: ref('stg_sellers')
+            to_columns: ['seller_id']
+
+      - name: shipping_limit_date
+        data_type: TIMESTAMP
+        description: "The date by which the order should be shipped."
+
+      - name: price
+        data_type: NUMERIC
+        description: "Price of the item."
+        tests:
+          - not_null
+      
+      - name: freight_value
+        data_type: NUMERIC
+        description: "Freight value of the item."
+        tests:
+          - not_null
+
+  - name: stg_order_payments
+    description: "Staging table for order payments data."
+    columns:
+      - name: payment_sk
+        data_type: STRING
+        description: "order id and payment_type concatenated"
+        constraints:
+          - type: primary_key
+          - type: not_null
+        tests:
+          - not_null
+          - unique
+      
+      - name: order_id
+        data_type: STRING
+        constraints:
+          - type: foreign_key
+            to: ref('stg_order')
+            to_columns: ['order_id']
+      
+      - name: payment_sequential
+        data_type: INT64
+
+      - name: payment_type
+        data_type: STRING
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['credit_card', 'voucher', 'not_defined', 'boleto', 'debit_card']
+
+      - name: payment_installments
+        data_type: INT64
+
+      - name: payment_value
+        data_type: NUMERIC
+        description: "Payment value."
+        tests:
+          - not_null
+
+  - name: stg_order_reviews
+    description: "Cleaned reviews data."
+    columns:
+      - name: review_id
+        data_type: STRING
+
+      - name: order_id
+        data_type: STRING
+        constraints:
+          - type: foreign_key
+            to: ref('stg_order')
+            to_columns: ['order_id']
+
+      - name: review_score
+        description: "Review score (1-5)."
+        data_type: INT64
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5]
+                quote: false
+      
+      - name: review_comment_title
+        data_type: STRING
+
+      - name: review_comment_message
+        data_type: STRING
+      
+      - name: review_creation_date
+        data_type: TIMESTAMP
+        description: "The date when the review was created."
+
+      - name: review_answer_timestamp
+        data_type: TIMESTAMP
+        description: "The date when the review was answered."
+
+  - name: stg_order
+    description: "Staging table for order data."
+    columns:
+      - name: order_id
+        data_type: STRING
+        description: "Order ID"
+        constraints:
+          - type: primary_key
+          - type: not_null
+        tests:
+          - not_null
+          - unique
+
+      - name: customer_id
+        data_type: STRING
+        constraints:
+          - type: foreign_key
+            to: ref('stg_customer_pii')
+            to_columns: ['customer_id']
+      
+      - name: order_status
+        data_type: STRING
+        description: "Status of the order (e.g., delivered, shipped)."
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['approved', 'canceled', 'created', 'delivered', 'invoiced', 'processing', 'shipped', 'unavailable']
+      
+      - name: order_purchase_timestamp
+        data_type: TIMESTAMP
+        description: "The timestamp when the order was purchased."
+
+      - name: order_approved_at
+        data_type: TIMESTAMP
+        description: "The timestamp when the order was approved."
+
+      - name: order_delivered_carrier_date
+        data_type: TIMESTAMP
+        description: "The timestamp when the order was delivered to the carrier."
+
+      - name: order_delivered_customer_date
+        data_type: TIMESTAMP
+        description: "The timestamp when the order was delivered to the customer."
+
+      - name: order_estimated_delivery_date
+        data_type: TIMESTAMP
+        description: "The estimated delivery date for the order."
+
+  - name: stg_sellers
+    description: "Staging table for sellers data."
+    columns:
+      - name: seller_id
+        data_type: STRING
+        description: "Seller ID"
+        constraints:
+          - type: primary_key
+          - type: not_null
+        tests:
+          - not_null
+          - unique
+      
+      - name: seller_zip_code_prefix
+        data_type: STRING
+        description: "Seller zip code prefix."
+        constraints:
+          - type: foreign_key
+            to: ref('stg_geolocation')
+            to_columns: ['zip_code']
+        tests:
+          - not_null
+      
+      - name: seller_city
+        data_type: STRING
+        description: "Seller city."
+        constraints:
+          - type: foreign_key
+            to: ref('stg_geolocation')
+            to_columns: ['city']
+      
+      - name: seller_state
+        data_type: STRING
+        description: "Seller state."
+        constraints:
+          - type: foreign_key
+            to: ref('stg_geolocation')
+            to_columns: ['state']
+
+  - name: stg_geolocation
+    description: "Staging model for geolocation data."
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: geolocation_zip_code_prefix
+        data_type: string
+        description: "Zip code prefix."
+        tests:
+          - not_null
+
+      - name: latitude
+        data_type: float64
+        description: "Latitude."
+
+      - name: longitude
+        data_type: float64
+        description: "Longitude."
+
+      - name: city
+        data_type: string
+        description: "City name."
+
+      - name: state
+        data_type: string
+        description: "State abbreviation."
+
+  - name: stg_products
+    description: "Staging model for products."
+    config:
+      contract:
+        enforced: false
+    columns:
+      - name: product_id
+        data_type: string
+        tests:
+          - unique
+          - not_null
+
+      - name: category_name
+        data_type: string
+
+      - name: name_length
+        data_type: int64
+
+      - name: description_length
+        data_type: int64
+
+      - name: photos_quantity
+        data_type: int64
+
+      - name: weight_g
+        data_type: float64
+
+      - name: length_cm
+        data_type: float64
+
+      - name: height_cm
+        data_type: float64
+
+      - name: width_cm
+        data_type: float64
+  
+  - name: stg_exchange_rates
+    description: "Staging model for exchange rates."
+    config:
+      contract:
+        enforced: false
+    columns:
+      - name: date
+        data_type: date
+        tests:
+          - not_null
+
+      - name: exchange_rate
+        data_type: float64
+
+      - name: source_currency
+        data_type: string
+
+      - name: target_currency
+        data_type: string
+
+  - name: stg_product_category_translation
+    description: "Staging model for category translations."
+    config:
+      contract:
+        enforced: false
+    columns:
+      - name: product_category_name
+        data_type: string
+        tests:
+          - unique
+          - not_null
+
+      - name: category_name_english
+        data_type: string

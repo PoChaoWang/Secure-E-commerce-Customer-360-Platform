@@ -1,0 +1,15 @@
+# Airflow 基本設定 (解決權限警告)
+AIRFLOW_UID = 50000
+
+# 您的自定義環境變數 (對應 DAG 中的 os.getenv)
+GCP_PROJECT_ID = (GCP_PROJECT_ID)
+GCP_DATBASE = (GCP_PROJECT_ID)
+GCP_KEY_PATH = (GCP_KEY_PATH)
+GCP_KEY_PATH_IN_CONTAINER = (GCP_KEY_PATH)
+GCS_BUCKET = (GCS_BUCKET)
+
+# (選填) 如果您想把常用的路徑變數也放這
+AIRFLOW_PROJ_DIR=.
+
+export GCP_PROJECT_ID = (GCP_PROJECT_ID)
+export GCP_KEY_PATH = (GCP_KEY_PATH)

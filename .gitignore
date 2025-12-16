@@ -1,0 +1,42 @@
+# .gitignore
+
+# 忽略 Terraform 相關檔案
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+
+# 忽略虛擬環境
+venv/
+env/
+.venv/
+
+# [重要] 忽略 GCP Key 和敏感資料夾
+.secrets/
+*.json
+gcp-key.json
+target/
+
+
+.user.yml
+.DS_Store
+
+# Python / Airflow
+__pycache__/
+*.pyc
+.env
+logs/
+plugins/
+airflow.db
+airflow.cfg
+
+# dbt
+dbt_ecommerce/dbt_packages/
+dbt_ecommerce/target/
+dbt_ecommerce/logs/
+dbt_ecommerce/seeds/
+.user.yml
+
+# IDE / System
+.DS_Store
+.vscode/

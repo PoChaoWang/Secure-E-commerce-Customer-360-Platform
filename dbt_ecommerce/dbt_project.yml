@@ -1,0 +1,45 @@
+name: dbt_ecommerce
+
+profile: dbt_ecommerce
+
+seed-paths: ["seeds"]
+model-paths: ["models"]
+macro-paths: ["macros"]
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+seeds:
+  # Builds seeds into '<your_schema_name>_raw'
+  dbt_ecommerce:
+    +schema: raw
+
+models:
+  dbt_ecommerce:
+    staging:
+      +contract:
+        enforced: true
+      +materialized: view
+      +schema: staging
+
+    intermediate:
+      +materialized: view
+      +schema: intermediate
+      
+    marts:
+      +materialized: table
+      +schema: marts
+      # --- 這裡開始是分流設定 ---
+      
+      # (A) 一般分析用 (Core)
+      # 繼承上面的 +materialized: table
+      # 沒有特別設 +schema，所以會寫入預設的 dataset (olist_marts)
+      core:
+        +tags: ["analytics"]
+
+      # (B) 行銷 CRM 用 (Marketing) - 敏感資料
+      # 繼承上面的 +materialized: table (它依然是張 Table)
+      # 但額外加上 +schema 設定，會改變它的寫入位置
+      marketing:
+        +schema: restricted 
+        +tags: ["pii", "sensitive"]

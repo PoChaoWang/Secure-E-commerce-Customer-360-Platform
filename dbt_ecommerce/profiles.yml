@@ -1,0 +1,21 @@
+dbt_ecommerce:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      threads: 4
+      project: "{{ env_var('GCP_PROJECT_ID') }}" 
+      schema: olist_raw
+      method: service-account
+      keyfile: "{{ env_var('GCP_KEY_PATH') }}" 
+      location: asia-east1
+      quota_project: "{{ env_var('GCP_PROJECT_ID') }}"
+    
+    ci:
+      type: bigquery
+      method: service-account
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
+      # 使用一個臨時的 dataset，或者動態產生 (例如 olist_ci_pr123)
+      dataset: olist_ci_test 
+      keyfile: "{{ env_var('GCP_KEY_PATH') }}"
+      location: asia-east1
