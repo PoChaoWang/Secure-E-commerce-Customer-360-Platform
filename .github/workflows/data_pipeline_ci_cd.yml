@@ -54,9 +54,9 @@ jobs:
       # 4. 測試 dbt Models (重複使用同一個 Image)
       - name: Test dbt Models
         run: |
+          sudo chmod -R 777 dbt_ecommerce
           docker run --rm \
             --entrypoint /bin/bash \
-            -u 0 \
             -v /tmp/gcp-key.json:/opt/airflow/secrets/gcp-key.json \
             -v $(pwd)/dbt_ecommerce:/opt/airflow/dbt_ecommerce \
             -e GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }} \
