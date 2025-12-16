@@ -55,28 +55,3 @@ jobs:
             -w /opt/airflow/dbt_ecommerce \
             my-ci-image \
             /bin/bash -c "dbt deps && dbt debug && dbt build --target dev"
-
-  # -------------------------------------------
-  # 部署 Job (維持不變)
-  # -------------------------------------------
-  deploy-production:
-    name: Deploy to Production Server
-    needs: [ci-tests] # 等上面那個合併的 Job 跑完
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-      
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v0.1.10
-        with:
-          host: ${{ secrets.PROD_HOST_IP }}
-          username: ${{ secrets.PROD_SSH_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          script: |
-            cd /path/to/your/project
-            git pull origin main
-            # 因為 requirements 可能變了，這裡建議也要重新 build
-            docker-compose build airflow-worker
-            docker-compose up -d
