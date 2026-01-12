@@ -1,0 +1,13 @@
+version: 2
+
+models:
+  - name: dim_customers_crm
+    description: "For marketing use only. Contains PII data such as email and full name for authorized campaigns."
+    columns:
+      - name: customer_id
+        description: "Unique identifier for the customer (session/order level)."
+        tests:
+          - unique
+          - not_null
+      - name: original_city
+        description: "City derived from customer provided address."

@@ -1,0 +1,80 @@
+version: 2
+
+models:
+  - name: dim_products
+    description: "Product dimension table. Contains product attributes and English category names."
+    columns:
+      - name: product_id
+        description: "Unique identifier for the product."
+        tests:
+          - unique
+          - not_null
+      - name: category_name
+        description: "Product category in English (e.g., 'furniture_decor')."
+      - name: photos_quantity
+        description: "Number of photos available for the product."
+      - name: weight_g
+        description: "Product weight in grams."
+
+  - name: dim_customers_anonymized
+    description: "Customer dimension table (Anonymized). Safe for general analytics."
+    columns:
+      - name: customer_id
+        description: "Unique identifier for the customer (session/order level)."
+        tests:
+          - unique
+          - not_null
+      - name: original_city
+        description: "City derived from customer provided address."
+      - name: email_hash
+        description: "Anonymized key to link with marketing PII data if authorized."
+
+  - name: fct_order_items
+    description: "Transactional fact table at the order-item level. Contains revenue metrics in USD and BRL."
+    columns:
+      - name: order_item_sk
+        description: "Surrogate key for the line item."
+        tests:
+          - unique
+          - not_null
+      
+      - name: order_id
+        description: "Foreign key to the order."
+        tests:
+          - not_null
+      
+      - name: product_id
+        description: "Foreign key to the product dimension."
+        tests:
+          - not_null
+          # 關鍵測試：確保每一筆訂單賣出去的商品，都能在產品表找到資料
+          - relationships:
+              arguments:
+                to: ref('dim_products')
+                field: product_id
+
+      - name: customer_id
+        description: "Foreign key to the customer dimension."
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: customer_id
+
+      - name: order_purchase_timestamp
+        description: "Timestamp when the purchase was made."
+      
+      - name: order_status
+        description: "Current status of the order."
+      
+      - name: revenue_usd
+        description: "Item price converted to USD based on daily exchange rates."
+        tests:
+          # 確保營收不為負數 (除非處理退貨邏輯)
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+      - name: is_delayed
+        description: "Boolean flag indicating if the order was delivered after the estimated date."
