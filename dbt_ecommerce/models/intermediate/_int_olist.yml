@@ -1,0 +1,73 @@
+version: 2
+
+models:
+  - name: int_products_enriched
+    description: "Enriches product data by joining with category translations. Replaces Portuguese category names with English ones where available."
+    columns:
+      - name: product_id
+        description: "Primary key of the product."
+        tests:
+          - unique
+          - not_null
+      
+      - name: category_name
+        description: "Coalesced category name (English preferred, falls back to original)."
+
+  - name: int_order_items_enriched
+    description: "Joins order items with order timestamps and daily exchange rates to calculate item values in USD."
+    columns:
+      - name: order_item_sk
+        description: "Surrogate key for the order item (combination of order_id and item sequence)."
+        tests:
+          - unique
+          - not_null
+      - name: price_usd
+        description: "Item price converted to USD based on the exchange rate at the purchase date." 
+
+      - name: freight_value_usd
+        description: "Freight value converted to USD."
+
+  - name: int_order_payments_pivoted
+    description: "Aggregates payments at the order level to prevent fan-outs. Pivots payment methods to flags and calculates total payment value per order."
+    columns:
+      - name: order_id
+        description: "Unique identifier for the order."
+        tests:
+          - unique   # 【關鍵測試】確保聚合成功，沒有重複的 order_id
+          - not_null
+      
+      - name: total_payment_value
+        description: "Sum of all payments for this order."
+      
+      - name: payment_types
+        description: "Comma-separated list of payment methods used."
+
+  - name: int_geolocation_average
+    description: "Aggregates geolocation data by zip code to eliminate duplicates caused by GPS drift. Calculates average latitude and longitude for each zip code."
+    columns:
+      - name: zip_code
+        description: "Zip code prefix."
+        tests:
+          - unique   # 【關鍵測試】確保每個郵遞區號只有一筆座標
+          - not_null
+      
+      - name: latitude
+        description: "Average latitude for this zip code to handle GPS drift."
+      
+      - name: longitude
+        description: "Average longitude for this zip code."
+
+  - name: int_customer_security
+    description: "Transforms raw customer PII data into anonymized formats for analysis while retaining raw fields for authorized marketing use."
+    columns:
+      - name: customer_id
+        description: "Unique identifier for the customer."
+        tests:
+          - unique
+          - not_null
+      - name: email_hash
+        description: "SHA256 hash of the customer email for anonymized analysis."
+      - name: real_name_masked
+        description: "Fully masked customer name (e.g., '*****')."
+      - name: home_address_generalized
+        description: "Generalized address extracted from the original home address for broad location analysis."
