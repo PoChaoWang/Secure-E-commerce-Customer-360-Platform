@@ -15,7 +15,7 @@ graph LR
         B["靜態檔案<br>(CSV 資料集)"]
     end
 
-    subgraph Orchestration [編排調度 (Airflow & Docker)]
+    subgraph Orchestration ["編排調度 (Airflow & Docker)"]
         C[Airflow DAGs]
         D[Worker 節點]
     end
