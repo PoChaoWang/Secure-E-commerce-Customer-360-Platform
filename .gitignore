@@ -40,3 +40,4 @@ dbt_ecommerce/seeds/
 # IDE / System
 .DS_Store
 .vscode/
+dbt分層邏輯.md
